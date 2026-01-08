@@ -1,0 +1,44 @@
+═══════════════════════════════════════════════════════════════
+  QUICK PUSH TO GITHUB - Copy & Paste These Commands
+═══════════════════════════════════════════════════════════════
+
+You're currently at: H:\RF-Automation
+
+STEP 1: Initialize Git (if not done)
+────────────────────────────────────────────────────────────────
+git init
+git add .
+git commit -m "Initial commit: RF Automation System"
+
+STEP 2: Create Repository on GitHub
+────────────────────────────────────────────────────────────────
+1. Go to: https://github.com/new
+2. Repository name: rf-automation
+3. Description: RF Automation System
+4. Choose Public or Private
+5. DO NOT add README/.gitignore/license
+6. Click "Create repository"
+
+STEP 3: Push to GitHub
+────────────────────────────────────────────────────────────────
+git remote add origin https://github.com/fkoff002-glitch/rf-automation.git
+git branch -M main
+git push -u origin main
+
+When asked for credentials:
+- Username: fkoff002-glitch
+- Password: Use Personal Access Token (not password)
+  Create at: https://github.com/settings/tokens
+
+STEP 4: Enable GitHub Pages
+────────────────────────────────────────────────────────────────
+1. Go to: https://github.com/fkoff002-glitch/rf-automation/settings/pages
+2. Source: Deploy from a branch
+3. Branch: main
+4. Folder: /frontend
+5. Click Save
+
+Your frontend will be at:
+https://fkoff002-glitch.github.io/rf-automation/
+
+═══════════════════════════════════════════════════════════════
