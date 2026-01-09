@@ -77,74 +77,89 @@ def validate_ip(ip: str) -> bool:
 
 async def fetch_inventory():
     global inventory_cache, inventory_index
-    logger.info("Fetching inventory from GitHub...")
+    logger.info("Loading inventory...")
+    
+    # --- CONFIGURATION: SWITCH BETWEEN LOCAL FILE OR REMOTE URL ---
+    USE_LOCAL_FILE = True 
+    LOCAL_FILE_PATH = "inventory.csv"
+    # ---------------------------------------------------------------
+
+    data_text = ""
+    
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(DATA_SOURCE_URL)
-            resp.raise_for_status()
-            
-            lines = resp.text.splitlines()
-            # Parse Header (Split by |)
-            headers_raw = lines[0].split('|')
-            headers = [h.strip() for h in headers_raw]
-            
-            inventory_cache = []
-            inventory_index = {"client": {}, "bts": {}, "pop": {}, "ip": {}}
-            
-            for line in lines[1:]:
-                if not line.strip(): continue
-                
-                # Parse Data (Split by |)
-                values_raw = line.split('|')
-                # Ensure we have enough values for headers, pad if necessary
-                values = [v.strip() for v in values_raw] + [""] * (len(headers) - len(values_raw))
-                
-                item = dict(zip(headers, values))
-                
-                # Map CSV headers to internal logic
-                # Your CSV has: Link_ID, POP_Name, BTS_Name, Client_Name, Base_IP, Client_IP, Loopback_IP, Location
-                client_name = item.get('Client_Name', '')
-                bts_name = item.get('BTS_Name', '')
-                pop_name = item.get('POP_Name', '')
-                base_ip = item.get('Base_IP', '')
-                client_ip = item.get('Client_IP', '')
-                loopback_raw = item.get('Loopback_IP', '')
-                
-                # Handle N/A values
-                if loopback_raw and loopback_raw.upper() != "N/A":
-                    loopback_ip = loopback_raw
-                else:
-                    loopback_ip = None
+        if USE_LOCAL_FILE:
+            # Read from local disk
+            try:
+                with open(LOCAL_FILE_PATH, "r", encoding='utf-8') as f:
+                    data_text = f.read()
+                logger.info(f"Loaded inventory from local file: {LOCAL_FILE_PATH}")
+            except FileNotFoundError:
+                logger.error(f"Local file not found: {LOCAL_FILE_PATH}")
+                return
+        else:
+            # Fetch from GitHub (Original logic)
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(DATA_SOURCE_URL)
+                resp.raise_for_status()
+                data_text = resp.text
+                logger.info("Loaded inventory from GitHub.")
 
-                # Validation: Skip if essential IPs are missing
-                if not validate_ip(client_ip) or not validate_ip(base_ip):
-                    continue
-                
-                record = {
-                    "client": client_name,
-                    "bts": bts_name if bts_name else pop_name, # Fallback to POP if BTS empty
-                    "pop": pop_name,
-                    "client_ip": client_ip,
-                    "base_ip": base_ip,
-                    "loopback_ip": loopback_ip
-                }
-                
-                inventory_cache.append(record)
-                
-                # Indexing (Lowercase for search)
-                inventory_index["client"][client_name.lower()] = record
-                inventory_index["bts"][record["bts"].lower()] = record 
-                inventory_index["pop"][pop_name.lower()] = record
-                inventory_index["ip"][client_ip] = record
-                inventory_index["ip"][base_ip] = record
+        # --- PARSING LOGIC (Same as before) ---
+        lines = data_text.splitlines()
+        # Parse Header (Split by |)
+        headers_raw = lines[0].split('|')
+        headers = [h.strip() for h in headers_raw]
+        
+        inventory_cache = []
+        inventory_index = {"client": {}, "bts": {}, "pop": {}, "ip": {}}
+        
+        for line in lines[1:]:
+            if not line.strip(): continue
+            
+            # Parse Data (Split by |)
+            values_raw = line.split('|')
+            values = [v.strip() for v in values_raw] + [""] * (len(headers) - len(values_raw))
+            
+            item = dict(zip(headers, values))
+            
+            # Map headers
+            client_name = item.get('Client_Name', '')
+            bts_name = item.get('BTS_Name', '')
+            pop_name = item.get('POP_Name', '')
+            base_ip = item.get('Base_IP', '')
+            client_ip = item.get('Client_IP', '')
+            loopback_raw = item.get('Loopback_IP', '')
+            
+            loopback_ip = loopback_raw if loopback_raw and loopback_raw.upper() != "N/A" else None
 
-            logger.info(f"Inventory loaded: {len(inventory_cache)} records.")
+            # Validation
+            if not validate_ip(client_ip) or not validate_ip(base_ip):
+                continue
+            
+            record = {
+                "client": client_name,
+                "bts": bts_name if bts_name else pop_name, 
+                "pop": pop_name,
+                "client_ip": client_ip,
+                "base_ip": base_ip,
+                "loopback_ip": loopback_ip
+            }
+            
+            inventory_cache.append(record)
+            
+            # Indexing
+            inventory_index["client"][client_name.lower()] = record
+            inventory_index["bts"][record["bts"].lower()] = record 
+            inventory_index["pop"][pop_name.lower()] = record
+            inventory_index["ip"][client_ip] = record
+            inventory_index["ip"][base_ip] = record
+
+        logger.info(f"Inventory loaded: {len(inventory_cache)} records.")
 
     except Exception as e:
         logger.error(f"Failed to load inventory: {e}")
         import traceback
         traceback.print_exc()
-
 @app.on_event("startup")
 async def startup_event():
     await fetch_inventory()
