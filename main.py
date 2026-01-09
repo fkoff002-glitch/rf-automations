@@ -1,9 +1,19 @@
+
+
+Here is the **complete, corrected** `main.py` file.
+
+**I added `import csv`** to the imports, which was the missing piece preventing the file from loading.
+
+Copy everything below and replace your entire `main.py` file:
+
+```python
 import os
 import re
 import ipaddress
 import logging
 import tempfile
 import asyncio
+import csv # <--- CRITICAL FIX: Added this import
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
@@ -15,7 +25,6 @@ from pydantic import BaseModel, validator
 # ---------------------------------------------------------
 # CONFIGURATION & LOGGING
 # ---------------------------------------------------------
-# Ensure this URL points to the raw CSV content in your repo
 DATA_SOURCE_URL = "https://fkoff002-glitch.github.io/RF-DATA/RF%20Data%20-%20RADIO_LINKS.csv"
 FRONTEND_URL = "https://fkoff002-glitch.github.io"
 
@@ -87,11 +96,9 @@ async def fetch_inventory():
 
     try:
         with open(LOCAL_FILE_PATH, "r", encoding='utf-8-sig') as f:
-            # Using DictReader is robust and handles formatting automatically
             reader = csv.DictReader(f)
             
             for row in reader:
-                # Extract and strip whitespace
                 client_name = row.get('Client_Name', '').strip()
                 bts_name = row.get('BTS_Name', '').strip()
                 pop_name = row.get('POP_Name', '').strip()
@@ -99,10 +106,8 @@ async def fetch_inventory():
                 client_ip = row.get('Client_IP', '').strip()
                 loopback_raw = row.get('Loopback_IP', '').strip()
                 
-                # Handle Loopback
                 loopback_ip = loopback_raw if loopback_raw and loopback_raw.upper() != "N/A" else None
 
-                # Validation
                 if not validate_ip(client_ip) or not validate_ip(base_ip):
                     continue
                 
@@ -117,7 +122,6 @@ async def fetch_inventory():
                 
                 inventory_cache.append(record)
                 
-                # Indexing
                 inventory_index["client"][client_name.lower()] = record
                 inventory_index["bts"][record["bts"].lower()] = record 
                 inventory_index["pop"][pop_name.lower()] = record
@@ -130,6 +134,7 @@ async def fetch_inventory():
         logger.error(f"Failed to load inventory: {e}")
         import traceback
         traceback.print_exc()
+
 @app.on_event("startup")
 async def startup_event():
     await fetch_inventory()
@@ -148,7 +153,6 @@ def calculate_gateway(base_ip: str) -> str:
 
 def parse_fping_output(output: str) -> Dict[str, dict]:
     results = {}
-    # Pattern for: 10.0.0.1 : 10 transmitted, 10 received, 0% loss, min/avg/max = 1.2/2.3/5.4
     pattern_stats = re.compile(
         r'(?P<ip>\d+\.\d+\.\d+\.\d+)\s*:\s*'
         r'(?P<sent>\d+)\s*transmitted,\s*'
@@ -184,7 +188,6 @@ async def run_fping_batch(targets: List[str]) -> Dict[str, dict]:
         f.write("\n".join(valid_targets))
 
     try:
-        # -l: loop stats, -c 3: 3 packets (for loss%), -f: file input
         process = await asyncio.create_subprocess_exec(
             'fping', '-l', '-c', '3', '-f', temp_filename,
             stdout=asyncio.subprocess.PIPE,
@@ -312,3 +315,4 @@ async def get_inventory_hierarchy():
 async def refresh_inventory():
     await fetch_inventory()
     return {"status": "success", "message": "Inventory reloaded"}
+```
