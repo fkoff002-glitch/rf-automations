@@ -79,16 +79,13 @@ async def fetch_inventory():
     global inventory_cache, inventory_index
     logger.info("Loading inventory...")
     
-    # --- CONFIGURATION: SWITCH BETWEEN LOCAL FILE OR REMOTE URL ---
     USE_LOCAL_FILE = True 
     LOCAL_FILE_PATH = "inventory.csv"
-    # ---------------------------------------------------------------
 
     data_text = ""
     
     try:
         if USE_LOCAL_FILE:
-            # Read from local disk
             try:
                 with open(LOCAL_FILE_PATH, "r", encoding='utf-8') as f:
                     data_text = f.read()
@@ -97,17 +94,17 @@ async def fetch_inventory():
                 logger.error(f"Local file not found: {LOCAL_FILE_PATH}")
                 return
         else:
-            # Fetch from GitHub (Original logic)
             async with httpx.AsyncClient() as client:
                 resp = await client.get(DATA_SOURCE_URL)
                 resp.raise_for_status()
                 data_text = resp.text
                 logger.info("Loaded inventory from GitHub.")
 
-        # --- PARSING LOGIC (Same as before) ---
+        # --- PARSING LOGIC (UPDATED FOR COMMA SEPARATION) ---
         lines = data_text.splitlines()
-        # Parse Header (Split by |)
-        headers_raw = lines[0].split('|')
+        
+        # Split by COMMA now
+        headers_raw = lines[0].split(',')
         headers = [h.strip() for h in headers_raw]
         
         inventory_cache = []
@@ -116,13 +113,13 @@ async def fetch_inventory():
         for line in lines[1:]:
             if not line.strip(): continue
             
-            # Parse Data (Split by |)
-            values_raw = line.split('|')
+            # Split data by COMMA now
+            values_raw = line.split(',')
             values = [v.strip() for v in values_raw] + [""] * (len(headers) - len(values_raw))
             
             item = dict(zip(headers, values))
             
-            # Map headers
+            # Map CSV headers
             client_name = item.get('Client_Name', '')
             bts_name = item.get('BTS_Name', '')
             pop_name = item.get('POP_Name', '')
