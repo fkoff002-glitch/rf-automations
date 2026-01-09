@@ -30,3 +30,9 @@ structlog==23.2.0
 
 # HTTP Client (for future integrations)
 httpx==0.25.2
+
+fastapi
+uvicorn
+httpx
+ipaddress
+pydantic
