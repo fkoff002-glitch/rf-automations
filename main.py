@@ -1,12 +1,3 @@
-
-
-Here is the **complete, corrected** `main.py` file.
-
-**I added `import csv`** to the imports, which was the missing piece preventing the file from loading.
-
-Copy everything below and replace your entire `main.py` file:
-
-```python
 import os
 import re
 import ipaddress
@@ -315,4 +306,3 @@ async def get_inventory_hierarchy():
 async def refresh_inventory():
     await fetch_inventory()
     return {"status": "success", "message": "Inventory reloaded"}
-```
