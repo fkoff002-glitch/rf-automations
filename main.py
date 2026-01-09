@@ -82,74 +82,47 @@ async def fetch_inventory():
     USE_LOCAL_FILE = True 
     LOCAL_FILE_PATH = "inventory.csv"
 
-    data_text = ""
-    
+    inventory_cache = []
+    inventory_index = {"client": {}, "bts": {}, "pop": {}, "ip": {}}
+
     try:
-        if USE_LOCAL_FILE:
-            try:
-                with open(LOCAL_FILE_PATH, "r", encoding='utf-8') as f:
-                    data_text = f.read()
-                logger.info(f"Loaded inventory from local file: {LOCAL_FILE_PATH}")
-            except FileNotFoundError:
-                logger.error(f"Local file not found: {LOCAL_FILE_PATH}")
-                return
-        else:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(DATA_SOURCE_URL)
-                resp.raise_for_status()
-                data_text = resp.text
-                logger.info("Loaded inventory from GitHub.")
+        with open(LOCAL_FILE_PATH, "r", encoding='utf-8-sig') as f:
+            # Using DictReader is robust and handles formatting automatically
+            reader = csv.DictReader(f)
+            
+            for row in reader:
+                # Extract and strip whitespace
+                client_name = row.get('Client_Name', '').strip()
+                bts_name = row.get('BTS_Name', '').strip()
+                pop_name = row.get('POP_Name', '').strip()
+                base_ip = row.get('Base_IP', '').strip()
+                client_ip = row.get('Client_IP', '').strip()
+                loopback_raw = row.get('Loopback_IP', '').strip()
+                
+                # Handle Loopback
+                loopback_ip = loopback_raw if loopback_raw and loopback_raw.upper() != "N/A" else None
 
-        # --- PARSING LOGIC (UPDATED FOR COMMA SEPARATION) ---
-        lines = data_text.splitlines()
-        
-        # Split by COMMA now
-        headers_raw = lines[0].split(',')
-        headers = [h.strip() for h in headers_raw]
-        
-        inventory_cache = []
-        inventory_index = {"client": {}, "bts": {}, "pop": {}, "ip": {}}
-        
-        for line in lines[1:]:
-            if not line.strip(): continue
-            
-            # Split data by COMMA now
-            values_raw = line.split(',')
-            values = [v.strip() for v in values_raw] + [""] * (len(headers) - len(values_raw))
-            
-            item = dict(zip(headers, values))
-            
-            # Map CSV headers
-            client_name = item.get('Client_Name', '')
-            bts_name = item.get('BTS_Name', '')
-            pop_name = item.get('POP_Name', '')
-            base_ip = item.get('Base_IP', '')
-            client_ip = item.get('Client_IP', '')
-            loopback_raw = item.get('Loopback_IP', '')
-            
-            loopback_ip = loopback_raw if loopback_raw and loopback_raw.upper() != "N/A" else None
-
-            # Validation
-            if not validate_ip(client_ip) or not validate_ip(base_ip):
-                continue
-            
-            record = {
-                "client": client_name,
-                "bts": bts_name if bts_name else pop_name, 
-                "pop": pop_name,
-                "client_ip": client_ip,
-                "base_ip": base_ip,
-                "loopback_ip": loopback_ip
-            }
-            
-            inventory_cache.append(record)
-            
-            # Indexing
-            inventory_index["client"][client_name.lower()] = record
-            inventory_index["bts"][record["bts"].lower()] = record 
-            inventory_index["pop"][pop_name.lower()] = record
-            inventory_index["ip"][client_ip] = record
-            inventory_index["ip"][base_ip] = record
+                # Validation
+                if not validate_ip(client_ip) or not validate_ip(base_ip):
+                    continue
+                
+                record = {
+                    "client": client_name,
+                    "bts": bts_name if bts_name else pop_name, 
+                    "pop": pop_name,
+                    "client_ip": client_ip,
+                    "base_ip": base_ip,
+                    "loopback_ip": loopback_ip
+                }
+                
+                inventory_cache.append(record)
+                
+                # Indexing
+                inventory_index["client"][client_name.lower()] = record
+                inventory_index["bts"][record["bts"].lower()] = record 
+                inventory_index["pop"][pop_name.lower()] = record
+                inventory_index["ip"][client_ip] = record
+                inventory_index["ip"][base_ip] = record
 
         logger.info(f"Inventory loaded: {len(inventory_cache)} records.")
 
